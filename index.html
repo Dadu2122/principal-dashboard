@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Staff Self Attendance</title>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#5a3fc0"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Attendance"/>
+<link rel="icon" href="icon-192.png"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg1:#150f30; --bg2:#241a55; --bg3:#1a1140;
+  --card:#1e1748; --card-line:rgba(255,255,255,0.08);
+  --text:#f1eefc; --text-dim:#a79fd1; --text-faint:#79709e;
+  --staff1:#5a3fc0; --staff2:#8f6fff;
+  --radius:18px;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Inter',sans-serif;
+  background: radial-gradient(circle at 20% 0%, #2a1f66 0%, var(--bg1) 45%, #0d0925 100%);
+  color:var(--text);
+  min-height:100vh;
+  padding-bottom:40px;
+}
+.wrap{max-width:480px; margin:0 auto; padding:0 16px;}
+.header{
+  background:linear-gradient(120deg, var(--staff1), var(--staff2));
+  padding:28px 18px 22px; text-align:center;
+}
+.header h1{font-family:'Poppins',sans-serif; font-size:1.25rem; margin:8px 0 2px;}
+.header .sub{font-size:0.78rem; opacity:0.9;}
+.card{
+  background:var(--card); border:1px solid var(--card-line); border-radius:var(--radius);
+  padding:16px; margin-top:16px; box-shadow:0 10px 26px rgba(0,0,0,0.35);
+}
+label{display:block; font-size:0.75rem; color:var(--text-dim); font-weight:600; margin:12px 0 6px;}
+label:first-child{margin-top:0;}
+select, input{
+  width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--card-line);
+  background:rgba(255,255,255,0.05); color:var(--text); font-size:0.92rem; font-family:inherit;
+}
+select:focus, input:focus{outline:none; border-color:var(--staff2);}
+.btn{
+  display:block; width:100%; padding:14px; border-radius:14px; border:none;
+  font-weight:700; font-size:0.95rem; margin-top:16px; cursor:pointer; text-align:center;
+}
+.btn-primary{background:linear-gradient(90deg,var(--staff1),var(--staff2)); color:#fff;}
+.btn:disabled{opacity:0.5;}
+.result-card{text-align:center;}
+.result-card .emoji{font-size:2rem;}
+.result-card .name{font-weight:800; font-size:1.05rem; margin-top:6px;}
+.result-card .meta{font-size:0.78rem; color:var(--text-dim); margin-top:2px;}
+.result-card .status{font-size:0.9rem; font-weight:700; margin-top:10px;}
+.result-card .time{font-size:0.75rem; color:var(--text-faint); margin-top:2px;}
+.lock-screen{text-align:center; padding:40px 10px;}
+.lock-screen .emoji{font-size:3rem;}
+.lock-screen h2{font-family:'Poppins',sans-serif; margin-top:10px;}
+.lock-screen p{color:var(--text-dim); font-size:0.85rem; line-height:1.6;}
+.clock{font-size:1.4rem; font-weight:800; margin-top:10px; font-family:'Poppins',sans-serif;}
+.toast{
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:#2a2260; color:#fff; padding:11px 20px; border-radius:30px; font-size:0.82rem;
+  opacity:0; transition:all .25s; pointer-events:none; z-index:50; box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  white-space:nowrap;
+}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+.error-box{border:1.5px solid #f5497a; text-align:center; color:#ff7aa8; font-weight:700; font-size:0.85rem;}
+.hidden{display:none;}
+.footer-note{text-align:center; font-size:0.65rem; color:var(--text-faint); margin-top:20px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="font-size:2rem;">🔑</div>
+  <h1 id="collegeNameDisplay">Staff Self Attendance</h1>
+  <div class="sub">अपनी श्रेणी → नाम → Passcode चुनें</div>
+</div>
+
+<div class="wrap">
+
+  <div id="lockScreen" class="card lock-screen hidden">
+    <div class="emoji">🔒</div>
+    <h2>Attendance Link बंद है</h2>
+    <p>यह लिंक सिर्फ <b>सुबह 9:00 बजे से शाम 6:00 बजे</b> तक ही खुलता है।<br/>कृपया इसी समय में दोबारा कोशिश करें।</p>
+    <div class="clock" id="clockNow">--:--</div>
+  </div>
+
+  <div id="mainFlow" class="hidden">
+    <div class="card">
+      <label>श्रेणी चुनें</label>
+      <select id="fCat" onchange="onCatChange()">
+        <option value="" disabled selected>चुनिए...</option>
+      </select>
+
+      <div id="nameWrap" class="hidden">
+        <label>अपना नाम चुनें</label>
+        <select id="fName" onchange="onNameChange()">
+          <option value="" disabled selected>चुनिए...</option>
+        </select>
+      </div>
+
+      <div id="passWrap" class="hidden">
+        <label>Passcode डालें</label>
+        <input type="text" id="fPass" placeholder="जैसे ar8a" maxlength="10"/>
+        <button class="btn btn-primary" onclick="submitAttendance()">✅ उपस्थिति दर्ज करें</button>
+      </div>
+    </div>
+
+    <div id="resultWrap"></div>
+  </div>
+
+  <div class="footer-note">Principal Dashboard · Staff Self Attendance · केवल 9 AM – 6 PM</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyAKNY16eiZ_BeEG2sxHevfdgnkxZC1WISQ",
+  authDomain: "principal-dashboard-a0ec4.firebaseapp.com",
+  databaseURL: "https://principal-dashboard-a0ec4-default-rtdb.firebaseio.com",
+  projectId: "principal-dashboard-a0ec4",
+  storageBucket: "principal-dashboard-a0ec4.firebasestorage.app",
+  messagingSenderId: "838519081007",
+  appId: "1:838519081007:web:b03350ef92cafdc1ae1eda"
+};
+firebase.initializeApp(firebaseConfig);
+const fbDB = firebase.database();
+
+const STAFF_CATEGORIES = [
+  {key:'facultyArts', label:'Arts Faculty', icon:'🎭'},
+  {key:'facultyScience', label:'Science Faculty', icon:'🔬'},
+  {key:'facultyCommerce', label:'Commerce Faculty', icon:'💼'},
+  {key:'classThree', label:'Class Three Employees', icon:'🧰'},
+  {key:'classFour', label:'Class Four Employees', icon:'🧹'},
+  {key:'upnl', label:'UPNL Employees', icon:'🧑‍💼'},
+  {key:'prd', label:'PRD Employees', icon:'🧑‍🔧'}
+];
+let allStaff = {};
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+function todayKey(){
+  const d = new Date();
+  return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+}
+function nowTimeStr(){
+  const d = new Date();
+  return pad2(d.getHours())+':'+pad2(d.getMinutes());
+}
+function fmtTime12(t){
+  if(!t) return '—';
+  const [h,m] = t.split(':').map(Number);
+  const ap = h>=12?'PM':'AM';
+  const h12 = h%12===0?12:h%12;
+  return `${h12}:${pad2(m)} ${ap}`;
+}
+function staffPasscode(s){
+  const firstName = (s.name||'').trim().split(/\s+/)[0] || '';
+  const f1 = firstName.charAt(0).toLowerCase();
+  const f2 = firstName.charAt(firstName.length-1).toLowerCase();
+  const mobDigit = (s.mobile||'').replace(/\D/g,'').charAt(0) || '?';
+  const mailChar = (s.email||'').trim().charAt(0).toLowerCase() || '?';
+  return `${f1||'?'}${f2||'?'}${mobDigit}${mailChar}`;
+}
+function withinWindow(){
+  const d = new Date();
+  const mins = d.getHours()*60 + d.getMinutes();
+  return mins >= 9*60 && mins < 18*60; // 9:00 AM to 6:00 PM
+}
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2400);
+}
+function updateClock(){
+  const d = new Date();
+  document.getElementById('clockNow').textContent = pad2(d.getHours())+':'+pad2(d.getMinutes())+':'+pad2(d.getSeconds());
+}
+
+function checkWindowAndInit(){
+  if(!withinWindow()){
+    document.getElementById('lockScreen').classList.remove('hidden');
+    document.getElementById('mainFlow').classList.add('hidden');
+    updateClock();
+    setInterval(()=>{
+      updateClock();
+      if(withinWindow()) location.reload();
+    }, 1000);
+    return;
+  }
+  document.getElementById('lockScreen').classList.add('hidden');
+  document.getElementById('mainFlow').classList.remove('hidden');
+  loadStaffList();
+}
+
+function loadStaffList(){
+  const catSel = document.getElementById('fCat');
+  catSel.innerHTML = '<option value="" disabled selected>चुनिए...</option>' +
+    STAFF_CATEGORIES.map(c=>`<option value="${c.key}">${c.icon} ${c.label}</option>`).join('');
+
+  fbDB.ref('staff').once('value').then(snap=>{
+    allStaff = snap.val() || {};
+  }).catch(err=>{
+    console.error(err);
+    showToast('⚠ Staff list लोड नहीं हुई — Internet check करें');
+  });
+}
+function onCatChange(){
+  const cat = document.getElementById('fCat').value;
+  document.getElementById('resultWrap').innerHTML = '';
+  document.getElementById('passWrap').classList.add('hidden');
+  const members = Object.keys(allStaff)
+    .filter(id=>allStaff[id].category===cat)
+    .map(id=>({id, ...allStaff[id]}));
+  const nameSel = document.getElementById('fName');
+  if(!members.length){
+    document.getElementById('nameWrap').classList.add('hidden');
+    showToast('⚠ इस श्रेणी में अभी कोई सदस्य नहीं मिला');
+    return;
+  }
+  nameSel.innerHTML = '<option value="" disabled selected>चुनिए...</option>' +
+    members.map(m=>`<option value="${m.id}">${m.name}${m.designation?(' — '+m.designation):''}</option>`).join('');
+  document.getElementById('nameWrap').classList.remove('hidden');
+}
+function onNameChange(){
+  document.getElementById('resultWrap').innerHTML = '';
+  document.getElementById('passWrap').classList.remove('hidden');
+}
+function submitAttendance(){
+  if(!withinWindow()){
+    showToast('⚠ समय समाप्त हो गया — यह लिंक सुबह 9 से शाम 6 तक ही काम करता है');
+    checkWindowAndInit();
+    return;
+  }
+  const staffId = document.getElementById('fName').value;
+  const staff = allStaff[staffId];
+  const resEl = document.getElementById('resultWrap');
+  if(!staff){ showToast('⚠ पहले नाम चुनें'); return; }
+  const entered = (document.getElementById('fPass').value || '').trim().toLowerCase();
+  if(!entered){ showToast('⚠ Passcode डालें'); return; }
+  if(entered !== staffPasscode(staff)){
+    resEl.innerHTML = `<div class="card error-box">❌ गलत Passcode — कृपया दोबारा कोशिश करें</div>`;
+    return;
+  }
+  const k = todayKey();
+  const attRef = fbDB.ref('attendance/'+staffId+'/'+k);
+  attRef.once('value').then(snap=>{
+    let entry = snap.val();
+    let statusMsg, statusTime;
+    if(!entry || !entry.p){
+      entry = { p:true, at: nowTimeStr(), dt: entry?entry.dt:'' };
+      attRef.set(entry);
+      statusMsg = '✅ Arrival Time दर्ज हो गया (Check-in)';
+      statusTime = 'AT ' + fmtTime12(entry.at);
+    } else if(!entry.dt){
+      entry.dt = nowTimeStr();
+      attRef.set(entry);
+      statusMsg = '✅ Departure Time दर्ज हो गया (Check-out)';
+      statusTime = 'DT ' + fmtTime12(entry.dt);
+    } else {
+      statusMsg = 'ℹ️ आज की AT और DT दोनों पहले से दर्ज हैं';
+      statusTime = `AT ${fmtTime12(entry.at)} · DT ${fmtTime12(entry.dt)}`;
+    }
+    resEl.innerHTML = `
+      <div class="card result-card">
+        <div class="emoji">✅</div>
+        <div class="name">${staff.name}</div>
+        <div class="meta">${staff.designation||''}${staff.subject?(' · '+staff.subject):''}</div>
+        <div class="status">${statusMsg}</div>
+        <div class="time">${statusTime}</div>
+      </div>`;
+    document.getElementById('fPass').value = '';
+  }).catch(err=>{
+    console.error(err);
+    showToast('⚠ Internet/Server में समस्या — दोबारा कोशिश करें');
+  });
+}
+
+checkWindowAndInit();
+
+// PWA installable banane ke liye — Add to Home Screen se app-jaisa icon ban jaata hai
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(err=>console.error('SW register failed', err));
+  });
+}
+</script>
+</body>
+</html>
